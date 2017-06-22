@@ -1,0 +1,245 @@
+package game;
+
+import java.awt.Graphics;
+import java.awt.Image;
+
+import gfx.Assets;
+import input.KeyBoard;
+import main.Window;
+import states.LevelSelectorState;
+import states.State;
+import ui.Button;
+import ui.Click;
+
+/**
+ * 
+ * @author 2911 Project
+ * Class to create and manage levels created
+ */
+public class Level {
+	
+	public static final int TILESIZE = 48;
+	
+	private int[][] maze;
+	
+	private int[][] copy;
+	
+	private int player_row, player_col;
+	
+	private Image texture;
+	
+	private int xOffset, yOffset;
+	
+	private long time, lastTime;
+	
+	private final int DELAY = 150;
+	
+	private Button restart, back;
+	
+	private boolean solved;
+	
+	private int plaStartRow, plaStartCol;
+	
+	private LevelSelectorState levelSelectorState;
+	
+	public static int ID = 0;
+	
+	private int id;
+	
+	/**
+	 * Contructor for creating a new level
+	 * @param maze : Matrix for map display of type int[][]
+	 * @param player_row: the y co-ord for the player of type int
+	 * @param player_col : the x co-ord for the player of type int
+	 * @param levelSelectorState : the level selected from the previous frame of type LevelSelectorState 
+	 */
+	public Level(int[][] maze, int player_row, int player_col, LevelSelectorState levelSelectorState){
+		this.levelSelectorState = levelSelectorState;
+		this.maze = maze;
+		ID ++;
+		id = ID;
+		copy = new int[maze.length][maze[0].length];
+		for(int row = 0; row < maze.length; row++){
+			for(int col = 0; col < maze[row].length; col ++)
+				copy[row][col] = maze[row][col];
+		plaStartRow = player_row;
+		plaStartCol = player_col;
+		this.player_row = player_row;
+		this.player_col = player_col;
+		if(ID == 1)
+			solved = true;
+		else
+			solved = false;
+		xOffset = (Window.WIDTH - maze[0].length*TILESIZE)/2;
+		yOffset = (Window.HEIGHT - maze.length*TILESIZE)/2;
+		texture = Assets.PlayerFront;
+		restart = new Button("RESTART", 100, Window.HEIGHT/2, new Click(){
+
+			@Override
+			public void onClick() {
+				reset();
+				
+			}},
+				Assets.font30);
+		back = new Button("BACK", Window.WIDTH - 100, Window.HEIGHT/2, new Click(){
+
+			@Override
+			public void onClick() {
+				State.currentState = levelSelectorState;
+				
+			}},
+				Assets.font30);
+		
+		time = 0;
+		lastTime = System.currentTimeMillis();
+		}
+	}
+	
+	/**
+	 * Method to reset the map 
+	 */
+	private void reset(){
+		for(int row = 0; row < maze.length; row++)
+			for(int col = 0; col < maze[row].length; col ++)
+				maze[row][col] = copy[row][col];
+		
+		player_row = plaStartRow;
+		player_col = plaStartCol;
+		texture = Assets.PlayerFront;
+	}
+	
+	/**
+	 * method to update the map after each move
+	 */
+	public void update(){
+		time += System.currentTimeMillis() - lastTime;
+		lastTime = System.currentTimeMillis();
+		
+		if(KeyBoard.UP && time > DELAY){
+			move(-1, 0);
+			texture = Assets.playerBack;
+		}
+		if(KeyBoard.LEFT && time > DELAY){
+			move(0, -1);
+			texture = Assets.playerLeft;
+		}
+		if(KeyBoard.DOWN && time > DELAY){
+			move(1, 0);
+			texture = Assets.PlayerFront;
+		}
+		if(KeyBoard.RIGHT && time > DELAY){
+			move(0, 1);
+			texture = Assets.playerRight;
+		}
+		
+		restart.update();
+		back.update();
+		// check answer
+		
+		for(int row = 0; row < maze.length; row++)
+			for(int col = 0; col < maze[row].length; col ++)
+				if(maze[row][col] == 2)
+					return;
+		
+		if(levelSelectorState.window.getAdv() == true){
+			id = 30;
+			levelSelectorState.getLevelRand().setSolved(true);
+		}
+		levelSelectorState.getLevels()[id].setSolved(true);
+		
+		State.currentState = levelSelectorState;
+		
+	}
+	
+	/**
+	 * Method to handle player movements
+	 * @param row : the y co-ord of the player of type int 
+	 * @param col : the x co-ord of the player of type int
+	 */
+	private void move(int row, int col){
+		// %todo afeek comments are god for ma health mmmmmmmmmmmaaaaannnnnnnnn :D
+		// if player isn't trying to walk into a wall
+		if(maze[player_row + row][player_col + col] != 1){
+			// and trying to move a block
+			if(maze[player_row + row][player_col + col] == 2 || maze[player_row + row][player_col + col] == 4) {
+				// if there is a block or wall in the direction of movement
+				if(maze[player_row + row*2][player_col + col*2] == 1 ||
+						maze[player_row + row*2][player_col + col*2] == 2 ||
+						maze[player_row + row*2][player_col + col*2] == 4)
+						// bad luck
+					return;
+			// if crate goes onto a goal -> change to goal is set :/
+				if(maze[player_row + row][player_col + col] == 4){
+					maze[player_row + row][player_col + col] = 3;	
+					// if crate is moved off a goal then change back to a goal
+					if(maze[player_row + row*2][player_col + col*2] == 3)
+						maze[player_row + row*2][player_col + col*2] = 4;
+					else
+						// move crate
+						maze[player_row + row*2][player_col + col*2] = 2;
+				}else{
+					// if empty
+					maze[player_row + row][player_col + col] = 0;
+					// box is on goal -> change to goal is set
+					if(maze[player_row + row*2][player_col + col*2] == 3)
+						maze[player_row + row*2][player_col + col*2] = 4;
+					else
+						// change empty to having a crate
+						maze[player_row + row*2][player_col + col*2] = 2;
+					
+				}
+				
+				
+			}
+			player_row += row;
+			player_col += col;
+		}
+		time = 0;
+	}
+	
+	/**
+	 * Method to render the graphics and images after each movement
+	 * @param g : the graphics that are present in the map of type Graphics
+	 */
+	public void render(Graphics g){
+		
+		restart.render(g);
+		back.render(g);
+		
+		for(int row = 0; row < maze.length; row++){
+			for(int col = 0; col < maze[row].length; col ++){
+				g.drawImage(Assets.floor, xOffset + col*TILESIZE, yOffset + row*TILESIZE, null);
+				if(maze[row][col] == 1)
+					g.drawImage(Assets.wall, xOffset + col*TILESIZE, yOffset + row*TILESIZE, null);
+				if(maze[row][col] == 2)
+					g.drawImage(Assets.boxOff, xOffset + col*TILESIZE, yOffset + row*TILESIZE, null);
+				if(maze[row][col] == 3)
+					g.drawImage(Assets.spot, xOffset + col*TILESIZE, yOffset + row*TILESIZE, null);
+				if(maze[row][col] == 4)
+					g.drawImage(Assets.boxOn, xOffset + col*TILESIZE, yOffset + row*TILESIZE, null);
+			}
+		}
+		
+		g.drawImage(texture, xOffset + player_col*TILESIZE, yOffset + player_row*TILESIZE, null);
+		
+		
+	}
+	
+	/**
+	 * Method to determine whether a level is solved or not
+	 * @return the result of a level being completed or not of type Boolean
+	 */
+	public boolean isSolved()
+	{
+		return solved;
+	}
+	
+	/**
+	 * Method to set a level as completed
+	 * @param bool : the completed state of a level of type Boolean
+	 */
+	public void setSolved(boolean bool)
+	{
+		solved = bool;
+	}
+}
